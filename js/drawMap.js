@@ -7,6 +7,13 @@ let width = document.getElementById("map").clientWidth;
 let height = document.getElementById("map").clientHeight;
 let centered;
 let thisCountry;
+let thisTown;
+const colors = {
+  green: "#cff1e1",
+  yellow: "#fffed5",
+  red: "#ffc4c4",
+  gray: "#868686"
+}
 
 // Set map location
 var projection = d3.geo.mercator()
@@ -33,6 +40,13 @@ svg.append("rect")
 
 const g = svg.append("g");
 
+const textG = svg.append("g");
+
+const bigText = textG.append("text")
+  .classed("big-text", true)
+  .attr("x", 20)
+  .attr("y", 45);
+
 const mapDetailLayer = g.append("g")
   .classed("map-layer", true);
 
@@ -45,20 +59,42 @@ mapLayer.selectAll("path")
   .enter().append("path")
   .attr("d", path)
   .attr("vector-effect", "non-scaling-stroke")
-  .attr("fill", "#cff1e1")
+  .attr("fill", colors.green)
   .on("mouseover", mouseover);
 
 mapDetailLayer.selectAll("path")
   .data(townData)
   .enter().append("path")
   .attr("d", path)
-  .attr("stroke", "#868686")
+  .attr("stroke", colors.gray)
   .attr("vector-effect", "non-scaling-stroke")
-  .attr("fill", "#fffed5")
+  .attr("fill", colors.yellow)
+  .on("mouseover", function (d, e) {
+    let x = d3.event.pageX - document.getElementById("map").getBoundingClientRect().x + 10;
+    let y = d3.event.pageY - document.getElementById("map").getBoundingClientRect().y + 10;
+
+    bigText
+      .text(d.properties.TOWNNAME)
+      .attr("x", x)
+      .attr("y", y);
+
+    if (thisTown !== this) {
+      if (thisTown) {
+        d3.select(thisTown).style("fill", colors.yellow);
+      }
+      d3.select(this).style("fill", colors.red);
+      thisTown = this;
+    }
+  })
   .on("click", clicked);
 
 // When mouseover, show town
 function mouseover() {
+  if (thisTown) {
+    bigText.text("");
+    d3.select(thisTown).style("fill", colors.yellow);
+    thisTown = null;
+  }
   if (thisCountry !== this) {
     if (thisCountry) {
       d3.select(thisCountry).style("display", "inline");
