@@ -11,28 +11,41 @@ function getAPIData(url, type) {
   });
 }
 
-const asyncRun = async () => {
-  return await getAPIData("https://works.ioa.tw/weather/api/all.json");
+const getCountrys = () => {
+  return getAPIData("https://works.ioa.tw/weather/api/all.json");
 }
-asyncRun().then(allTowns => {
-  console.log(allTowns);
-  for (let i=0; i<allTowns.length; i++) {
-    getTownsData(allTowns[i])
-  }
-}).catch(response => { // 有失敗的
-  console.log(response);
-})
 
-function getTownsData(county) {
-  const towns = Object.assign([], county.towns);
-  const asyncRun = async () => {
-    for (let i=0; i<towns.length; i++) {
-      const towndata = await getAPIData(`https://works.ioa.tw/weather/api/towns/${towns[i].id}.json`);
-      towns[i].extend(towndata);
-    }
-    return towns
-  }
-  asyncRun().then(allTowns => {
-    return allTowns;
-  })
+const getTownsData = (town) => {
+  return getAPIData(`https://works.ioa.tw/weather/api/towns/${town}.json`);
 }
+const getTownsWeather = (town) => {
+  return getAPIData(`https://works.ioa.tw/weather/api/weathers/${town}.json`);
+}
+
+async function getAllTownsDataByCountryData(allTowns, cb, name) {
+  for (let countryIndex = 0; countryIndex < allTowns.length; countryIndex++) {
+    const country = allTowns[countryIndex];
+    for (let townIndex = 0; townIndex < country.towns.length; townIndex++) {
+      const town = country.towns[townIndex];
+      const towndata = await cb(town.id);
+      if (!town[name]) town[name] = {}
+      town[name].extend(towndata);
+    }
+  }
+  return allTowns;
+}
+
+getCountrys().then(allTowns => {
+  const country = JSON.parse(JSON.stringify(allTowns));
+  getAllTownsDataByCountryData(country, getTownsData, 'data').then(data => {
+    console.log(data);
+  });
+  const schedule = new Schedule("test")
+  schedule.freqMillisecond = 100000
+  schedule.action = function () {
+    getAllTownsDataByCountryData(country, getTownsWeather, 'weather').then(data => {
+      console.log(data);
+    });
+  }
+  schedule.start();
+})

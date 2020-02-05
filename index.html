@@ -1,12 +1,27 @@
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>即時氣象</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body>
+  <!-- Load d3.js -->
+  <script src="js/plugin/d3/d3.v3.min.js"></script>
+
   <script src="js/object.prototye.js"></script>
+  <script src="js/schedule.js"></script>
+  <script src="js/data/taiwan.js"></script>
+  <script src="js/data/taiwan_town.js"></script>
+  
+  <!-- Create an element where the map will take place -->
+  <svg id="map"></svg>
+  
+  <script src="js/drawMap.js"></script>
   <script src="js/script.js"></script>
 </body>
+
 </html>
