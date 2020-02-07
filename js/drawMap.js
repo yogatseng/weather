@@ -50,11 +50,10 @@ const drag = d3.behavior.drag()
   });
 
 const zoom = d3.behavior.zoom()
-  .translate(projection.translate())
   .scale(1)
-  .scaleExtent([height, 8 * height])
+  .scaleExtent([1, 8])
   .on("zoom", function () {
-    k = d3.event.scale / 600;
+    k = d3.event.scale;
     g.attr("transform", `translate(${width / 2},${height / 2})scale(${k})translate(${-x},${-y})`);
   });
 
