@@ -3,11 +3,16 @@ const countryData = mapData.features;
 const townData = mapDetailData.features;
 
 // Set svg data
-let width = document.getElementById("map").clientWidth;
-let height = document.getElementById("map").clientHeight;
+let width = document.body.clientWidth;
+let height = document.body.clientHeight;
+let x = width / 2;
+let y = height / 2;
+let k = 1;
 let centered;
 let thisCountry;
 let thisTown;
+let eventX = width / 2;
+let eventY = height / 2;
 const colors = {
   green: "#cff1e1",
   yellow: "#fffed5",
@@ -16,19 +21,49 @@ const colors = {
 }
 
 // Set map location
-var projection = d3.geo.mercator()
+const projection = d3.geo.mercator()
   .scale(9000)
   // Center the Map in Colombia
   .center([120.5, 24]) // 調整位置
   .translate([width / 2, height / 2]);
 
-var path = d3.geo.path()
+const path = d3.geo.path()
   .projection(projection);
+
+const drag = d3.behavior.drag()
+  .on("dragstart", function () {
+    g.attr("cursor", "grab");
+    let startPosition = getCursorPosition();
+    eventX = startPosition[0];
+    eventY = startPosition[1];
+  })
+  .on("drag", function () {
+    x += eventX - d3.event.x;
+    y += eventY - d3.event.y;
+    eventX = d3.event.x;
+    eventY = d3.event.y;
+    g.attr("cursor", "grabbing")
+      .attr("transform", `translate(${width / 2},${height / 2})scale(${k})translate(${-x},${-y})`);
+  })
+  .on("dragend", function () {
+    g.attr("cursor", "default");
+  });
+
+const zoom = d3.behavior.zoom()
+  .translate(projection.translate())
+  .scale(1)
+  .scaleExtent([height, 8 * height])
+  .on("zoom", function () {
+    k = d3.event.scale / 600;
+    g.attr("transform", `translate(${width / 2},${height / 2})scale(${k})translate(${-x},${-y})`);
+  });
 
 // Set svg width & height
 const svg = d3.select("#map")
   .attr("width", width)
-  .attr("height", height);
+  .attr("height", height)
+  .call(drag)
+  .call(zoom);
 
 // Add background
 svg.append("rect")
@@ -85,8 +120,7 @@ mapDetailLayer.selectAll("path")
       d3.select(this).style("fill", colors.red);
       thisTown = this;
     }
-  })
-  .on("click", clicked);
+  });
 
 // When mouseover, show town
 function mouseover() {
@@ -108,7 +142,6 @@ function mouseover() {
 
 // When clicked, zoom in
 function clicked(d) {
-  let x, y, k;
 
   // Compute centroid of the selected path
   if (d && centered !== d) {
@@ -123,9 +156,29 @@ function clicked(d) {
     k = 1;
     centered = null;
   }
-
+  console.log(width / 2, height / 2, k, -x, -y)
   // Zoom
   g.transition()
-    .duration(200)
     .attr("transform", `translate(${width / 2},${height / 2})scale(${k})translate(${-x},${-y})`);
+}
+
+// Get mouse position
+function getCursorPosition(e) {
+  var posx = 0;
+  var posy = 0;
+
+  if (!e) var e = window.event;
+
+  if (e.pageX || e.pageY) {
+    posx = e.pageX - document.documentElement.scrollLeft - document.body.scrollLeft;
+    posy = e.pageY - document.documentElement.scrollTop - document.body.scrollTop;
+  }
+  else if (e.clientX || e.clientY) { // For IE
+    posx = e.clientX; //+ document.body.scrollLeft+ document.documentElement.scrollLeft;
+    posy = e.clientY; //+ document.body.scrollTop + document.documentElement.scrollTop;
+
+    //如果想取得目前的捲動值 就把後面的註解拿掉
+  }
+
+  return [posx, posy]; // posx posy就是游標的X,Y值了
 }
