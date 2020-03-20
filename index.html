@@ -1,27 +1,246 @@
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>即時氣象</title>
+  <link rel="stylesheet" href="css/font-awesome-5.12.0.min.css" />
   <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
-  <!-- Load d3.js -->
-  <script src="js/plugin/d3/d3.v3.min.js"></script>
-
-  <script src="js/object.prototye.js"></script>
-  <script src="js/schedule.js"></script>
-  <script src="js/data/taiwan.js"></script>
-  <script src="js/data/taiwan_town.js"></script>
-  
+  <!-- Create background image -->
+  <div id="scenery"></div>
+  <!-- Show weather infomation -->
+  <div id="weather"></div>
   <!-- Create an element where the map will take place -->
-  <svg id="map"></svg>
-  
-  <script src="js/drawMap.js"></script>
-  <script src="js/script.js"></script>
+  <div id="map"></div>
+  <!-- Show map data when hover -->
+  <div class="tooltip"></div>
+  <!-- Show loading circle -->
+  <div id="masking">
+    <span><i class="fas fa-spinner fa-spin"></i></span>
+    <span id="loading-text">載入地圖資訊...</span>
+  </div>
+
+  <script src="js/plugin/d3/d3.v3.min.js"></script>
+  <script src="js/data/taiwan_town.js"></script>
+  <script src="js/components/map.js"></script>
+  <script src="js/utilities/prototype.js"></script>
+  <script src="js/utilities/grab.js"></script>
+  <script src="js/utilities/schedule.js"></script>
+  <script src="js/town.js"></script>
+  <script>
+    // loading...
+    const loadingText = document.getElementById("loading-text");
+    const changeTxt = function (text) {
+      return new Promise((resolve) => {
+        loadingText.textContent = text;
+        window.setTimeout(() => {
+          resolve();
+        }, 10);
+      })
+    }
+
+    // map
+    const map = new Map(d3.select("#map"));
+    console.log
+    map.townsData = {};
+    map.createTooltip = function () {
+      this.tooltip = document.getElementsByClassName("tooltip")[0];
+      this.title = document.createElement("SPAN");
+      this.title.classList.add("tooltip-title");
+      this.subtitle = document.createElement("SPAN");
+      this.subtitle.classList.add("tooltip-subtitle");
+      this.content = document.createElement("DIV");
+      this.content.classList.add("tooltip-content");
+      this.tooltip.appendChild(this.title);
+      this.tooltip.appendChild(this.subtitle);
+      this.tooltip.appendChild(this.content);
+    };
+    map.townMouseover = function (d) {
+      if (d) {
+        map.tooltip.classList.add("show");
+        map.title.textContent = d.properties.TOWNNAME;
+        map.subtitle.textContent = d.properties.COUNTYNAME;
+        map.content.textContent = `${d.properties.temperature || "---"}°C`;
+
+        const pos = map.getCursorPosition();
+        const windowHeight = window.innerHeight;
+        const windowWidth = window.innerWidth;
+        const tipHeight = map.tooltip.offsetHeight;
+        const tipWidth = map.tooltip.offsetWidth;
+
+        map.tooltip.style.top = `${pos[1] > windowHeight - tipHeight - 10 ? pos[1] - tipHeight - 10 : pos[1] + 10}px`;
+        map.tooltip.style.left = `${pos[0] > windowWidth - tipWidth - 10 ? pos[0] - tipWidth - 10 : pos[0] + 10}px`;
+      } else {
+        map.tooltip.classList.remove("show");
+      }
+    }
+    map.drawMap = function () {
+      return new Promise((resolve) => {
+        this.createGroup(); // Map Group
+        this.createGroup(); // Text Group
+
+        // 繪製tooltip
+        this.createTooltip();
+
+        // 繪製地圖
+        mapDetailData.features.forEach(data => {
+          if (!this.townsData[data.properties.COUNTYNAME]) this.townsData[data.properties.COUNTYNAME] = [];
+          this.townsData[data.properties.COUNTYNAME].push(data);
+        });
+        d3.select(".tooltip").on("mouseover", this.townMouseover);
+
+        // 繪製鄉鎮市區
+        for (let i = 0; i < Object.keys(this.townsData).length; i++) {
+          const countryName = Object.keys(this.townsData)[i];
+          this.createLayer(0); // towns Map Layer
+          this.groups[0].layers[i].g.attr("data-country", countryName);
+          this.drawLayer(this.townsData[countryName], this.groups[0].layers[i].g, this.townMouseover);
+        }
+        resolve();
+      });
+    };
+
+    // weather
+    class Weather extends Grab {
+      constructor(url) {
+        super(url);
+      }
+    }
+    // 參考API網址：https://works.ioa.tw/weather/api/doc/index.html#api-Weather_API
+    const weather = new Weather("https://works.ioa.tw/weather/api/all.json");
+    weather.countrys = {};
+    weather.towns = {};
+    weather.initData = function () {
+      return new Promise((resolve) => {
+        // 更新畫面
+        this.draw = new Schedule();
+        this.draw.freqMillisecond = 5 * 1000;
+        this.draw.startIndex = 1;
+        this.draw.quantity = 5;
+        this.draw.action = function () {
+          let startIndex = weather.draw.startIndex;
+          let quantity = weather.draw.quantity;
+          let count = 0;
+          for (let i = startIndex; i < startIndex + quantity; i++) {
+            if (i > Object.keys(weather.towns).length) {
+              quantity = quantity - (i - startIndex);
+              startIndex = 1;
+              i = startIndex;
+            }
+
+            let card = document.getElementsByClassName("card")[count];
+            if (!card) {
+              card = document.createElement("DIV");
+              card.classList.add("card");
+              document.getElementById("weather").appendChild(card);
+            }
+
+            let temp = document.createElement("DIV");
+            temp.classList.add("card");
+            let cardTitle = document.createElement("DIV");
+            cardTitle.classList.add("card-title");
+            cardTitle.textContent = weather.towns[i].name;
+            let cardSubtitle = document.createElement("SPAN");
+            cardSubtitle.textContent = weather.towns[i].countryName;
+            cardTitle.appendChild(cardSubtitle);
+            temp.appendChild(cardTitle);
+
+            let temperature = document.createElement("DIV");
+            temperature.classList.add("card-temperature");
+            temperature.textContent = `${weather.towns[i].weather.temperature}°C`;
+            temp.appendChild(temperature);
+            let desc = document.createElement("DIV");
+            desc.classList.add("card-desc");
+            desc.textContent = `${weather.towns[i].weather.desc}`;
+            temp.appendChild(desc);
+            let felt_air_temp = document.createElement("DIV");
+            felt_air_temp.classList.add("card-felt_air_temp");
+            felt_air_temp.textContent = `體感溫度：${weather.towns[i].weather.felt_air_temp}`;
+            temp.appendChild(felt_air_temp);
+            let humidity = document.createElement("DIV");
+            humidity.classList.add("card-humidity");
+            humidity.textContent = `濕度：${weather.towns[i].weather.humidity}`;
+            temp.appendChild(humidity);
+            document.getElementById("weather").replaceChild(temp, card);
+
+            card.setAttribute("data-town", weather.towns[i].id);
+            card.setAttribute("data-country", weather.towns[i].countryId);
+
+            count++;
+          }
+          weather.draw.startIndex = startIndex + quantity;
+        };
+
+        // 更新資料
+        this.getData = new Schedule();
+        this.getData.freqMillisecond = 15 * 60 * 1000;
+        this.getData.action = function () {
+          Promise.all(weather.towns.toList((ele, key) => ele.weatherApi.getAPIData()))
+            .then(weathers => {
+              weathers.forEach((data, index) => {
+                weather.towns[index + 1].weather = data;
+              });
+              console.log(weather.towns, map.townsData);
+              // 將溫度放進地圖資訊(hover用)
+              for (let i = 1; i < Object.keys(weather.towns).length; i++) {
+                const country = weather.towns[i].countryName;
+                for (let townIndex = 0; townIndex < map.townsData[country].length; townIndex++) {
+                  if (map.townsData[country][townIndex].properties.TOWNNAME === weather.towns[i].name) {
+                    map.townsData[country][townIndex].properties.temperature = weather.towns[i].weather
+                      .temperature;
+                    break;
+                  }
+                }
+              }
+
+              // 定期更新資訊卡
+              weather.draw.stop();
+              weather.draw.start();
+              map.resetWidthAndHeight();
+              document.getElementById("masking").classList.add("hide");
+            });
+        };
+
+        this.getAPIData()
+          .then(data => {
+            data.forEach(country => {
+              weather.countrys[country.id] = new Country(country.id, country.name, country.towns);
+              country.towns.forEach(town => {
+                weather.towns[town.id] = new Town(town.id, town.name, country.id, country.name);
+              })
+            });
+            return weather.towns;
+          })
+          .then(result => {
+            return Promise.all(result.toList((ele, key) => ele.dataApi.getAPIData()))
+          })
+          .then(data => {
+            data.forEach(town => {
+              weather.towns[town.id].setData(town);
+              weather.towns[town.id].setCountry(weather.countrys[town.cate.id]);
+            });
+
+            weather.getData.start();
+
+            resolve();
+          });
+      });
+    };
+
+    // 執行
+    const asyncFunc = async () => {
+      await changeTxt("繪製地圖...");
+      await map.drawMap();
+      await changeTxt("載入天氣資訊...");
+      await weather.initData();
+      return;
+    }
+    asyncFunc()
+  </script>
 </body>
 
 </html>
