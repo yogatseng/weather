@@ -125,7 +125,6 @@ class Map {
     svg.addEventListener("mousedown", function (event) {
       shiftX = event.clientX;
       shiftY = event.clientY;
-      console.log(shiftX, shiftY, map.translateX, map.translateY)
 
       svg.addEventListener("mousemove", draging);
       svg.addEventListener("mouseup", drop);
@@ -141,14 +140,15 @@ class Map {
       if (scroll < 0.6) scroll = 0.6;
       else if (scroll > 3) scroll = 3;
       if (scroll !== map.scale) {
-        map.translateX -= evt.clientX * scrollVar;
-        map.translateY -= evt.clientY * scrollVar;
+        map.translateX -= evt.pageX * scrollVar;
+        map.translateY -= evt.pageY * scrollVar;
       }
       map.scale = scroll;
 
-      map.mapSelf.transition()
-        .duration(500)
-        .ease('linear')
+      map.mapSelf
+      // .transition()
+      //   .duration(500)
+      //   .ease('linear')
         .attr("transform", `translate(${map.translateX},${map.translateY})scale(${map.scale})`);
     })
   }

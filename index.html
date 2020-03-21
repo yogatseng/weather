@@ -91,6 +91,7 @@
           if (!this.townsData[data.properties.COUNTYNAME]) this.townsData[data.properties.COUNTYNAME] = [];
           this.townsData[data.properties.COUNTYNAME].push(data);
         });
+        this.react.on("mouseover", this.townMouseover);
         d3.select(".tooltip").on("mouseover", this.townMouseover);
 
         // 繪製鄉鎮市區
